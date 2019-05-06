@@ -5,9 +5,9 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Build;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,13 +35,17 @@ public class AdjustLayout extends ViewGroup {
     }
 
     public AdjustLayout(Context context, AttributeSet attrs, int defStyleAttr) {
-        this(context, attrs, defStyleAttr,0);
+        super(context, attrs, defStyleAttr);
+        init(context,attrs);
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public AdjustLayout(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
+        init(context,attrs);
+    }
 
+    private void init(Context context, AttributeSet attrs){
         TypedArray typedArray = context.obtainStyledAttributes(attrs,R.styleable.AdjustLayout);
         gravityFlag = typedArray.getInteger(R.styleable.AdjustLayout_gravity,0b0101);
         rowSpace = typedArray.getDimensionPixelSize(R.styleable.AdjustLayout_rowSpace,0);
@@ -50,6 +54,7 @@ public class AdjustLayout extends ViewGroup {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        long start = System.currentTimeMillis();
         int childCount = getChildCount();
         if(childCount < 1){
             //wrap_content支持
@@ -76,10 +81,10 @@ public class AdjustLayout extends ViewGroup {
 
                 View child = getChildAt(i);
                 final LayoutParams lp = child.getLayoutParams();
-                //区别在于textView、button等是否自动换行以适应布局，这种写法match_parent只会占有剩余的空间，而不会等于AdjustLayout的宽度
-                measureChild(child,getChildMeasureSpec(widthMeasureSpec,usedWidth,lp.width),
-                        getChildMeasureSpec(heightMeasureSpec,usedHeight,lp.height));
-//                measureChild(child,widthMeasureSpec,heightMeasureSpec);
+                //区别在于textView、button等是否自动换行以适应布局，前者match_parent只会占有剩余的空间，而不会等于AdjustLayout的宽度
+//                measureChild(child,getChildMeasureSpec(widthMeasureSpec,usedWidth,lp.width),
+//                        getChildMeasureSpec(heightMeasureSpec,usedHeight,lp.height));
+                measureChild(child,widthMeasureSpec,heightMeasureSpec);
                 int childWidth = child.getMeasuredWidth();
                 if(usedWidth+childWidth+getPaddingLeft()+getPaddingRight() > totalWidth){
                     //换行
@@ -113,10 +118,12 @@ public class AdjustLayout extends ViewGroup {
             int height = MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST?usedHeight:getDefaultSize(usedHeight, heightMeasureSpec);
             setMeasuredDimension(width,height);
         }
+        Log.e("TAG", "onMeasure time:"+(System.currentTimeMillis() - start));
     }
 
     @Override
     protected void onLayout(boolean flag, int l, int t, int r, int b) {
+        long start = System.currentTimeMillis();
         int childIdx = 0;
         //居中模式
         int hgrv = gravityFlag & 0b0011;
@@ -125,7 +132,7 @@ public class AdjustLayout extends ViewGroup {
             int[] cacheInfo = measureCaches.get(idx);
             int usedWidth = cacheInfo[1];
             int diff = r - l - usedWidth;
-            int leftStart = (hgrv==0b00)?l:(hgrv==0b01?l+diff/2:l+diff);
+            int leftStart = (hgrv==0b00)?0:(hgrv==0b01?diff/2:diff);
             int rowWidthUsed = 0;
             for(int j = 0;j<cacheInfo[0];j++){
                 if(j>0){
@@ -135,13 +142,15 @@ public class AdjustLayout extends ViewGroup {
                 int childWidth = child.getMeasuredWidth();
                 int childHeight = child.getMeasuredHeight();
                 int ltmp = leftStart+rowWidthUsed;
-                int tstart = (vgrv == 0b0000)?t+cacheInfo[2]:
-                        (vgrv == 0b0100?t+cacheInfo[2]+(cacheInfo[3]-childHeight)/2:t+cacheInfo[2]+cacheInfo[3]-childHeight);
+                int tstart = (vgrv == 0b0000)?cacheInfo[2]:
+                        (vgrv == 0b0100?cacheInfo[2]+(cacheInfo[3]-childHeight)/2:cacheInfo[2]+cacheInfo[3]-childHeight);
                 child.layout(ltmp,tstart,ltmp+child.getMeasuredWidth(),tstart+childHeight);
                 rowWidthUsed += childWidth;
                 childIdx++;
             }
             rowWidthUsed = 0;
         }
+        Log.e("TAG", "onLayout time:"+(System.currentTimeMillis() - start));
+
     }
 }
